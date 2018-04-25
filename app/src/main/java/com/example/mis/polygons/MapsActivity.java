@@ -10,11 +10,14 @@ import android.support.v7.app.AlertDialog;
 import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -64,7 +67,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     // The geographical location where the device is currently located. That is, the last-known
     // location retrieved by the Fused Location Provider.
-    private Location mLastKnownLocation;
+    private Location mLastKnownLocation = new Location("");
 
     // Keys for storing activity state.
     private static final String KEY_CAMERA_POSITION = "camera_position";
@@ -77,6 +80,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private String[] mLikelyPlaceAttributions;
     private LatLng[] mLikelyPlaceLatLngs;
 
+    private EditText mInput;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,11 +104,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Construct a FusedLocationProviderClient.
         mFusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
+        // input field for marker info
+        mInput = findViewById(R.id.inputField);
+
+        // set default location
+        mLastKnownLocation.setLatitude(50.9757);
+        mLastKnownLocation.setLongitude(11.3222);
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
-
     }
 
 
@@ -197,8 +207,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         getDeviceLocation();
 
         // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(-34, 151);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+        //LatLng sydney = new LatLng(-34, 151);
+        //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
         //mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 
         mMap.setOnMapLongClickListener(MapsActivity.this);
@@ -238,6 +248,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             }
         } catch (SecurityException e)  {
             Log.e("Exception: %s", e.getMessage());
+            Toast invalid_url = Toast.makeText(MapsActivity.this, "Invalid URL!", Toast.LENGTH_SHORT);
+            invalid_url.setGravity(Gravity.CENTER, 0, 0);
+            invalid_url.show();
         }
     }
 
@@ -422,6 +435,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
+    // reset inputField content
+    public void resetInputField(View view) {
+        mInput.setText("");
+    }
+
+
     /**
      * Add marker on long click to the selected position
      * https://stackoverflow.com/questions/16097143/google-maps-android-api-v2-detect-long-click-on-map-and-add-marker-not-working
@@ -430,9 +449,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapLongClick(LatLng point) {
         mMap.addMarker(new MarkerOptions()
                 .position(point)
-                .title("You are here"));
+                .title(mInput.getText().toString()));
     }
-
-
 
 }
