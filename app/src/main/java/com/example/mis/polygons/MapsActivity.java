@@ -1,6 +1,7 @@
 package com.example.mis.polygons;
 
 import android.content.DialogInterface;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.support.annotation.NonNull;
@@ -45,7 +46,7 @@ import com.google.android.gms.tasks.Task;
  * Source: https://developers.google.com/maps/documentation/android-api/current-place-tutorial
  * Source: https://github.com/googlemaps/android-samples/blob/master/tutorials/CurrentPlaceDetailsOnMap/app/src/main/java/com/example/currentplacedetailsonmap/MapsActivityCurrentPlace.java
  */
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapLongClickListener, GoogleMap.OnInfoWindowClickListener {
 
     private static final String TAG = MapsActivity.class.getSimpleName();
     private GoogleMap mMap;
@@ -82,6 +83,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private EditText mInput;
 
+    private SharedPreferences sharedPreferences;
+    private int locationCount = 0;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -115,6 +119,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+
     }
 
 
@@ -211,7 +217,49 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
         //mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
 
+        // set long click listener to add marker
         mMap.setOnMapLongClickListener(MapsActivity.this);
+
+        // set info window click listener to remove marker
+        mMap.setOnInfoWindowClickListener(MapsActivity.this);
+
+        // Opening the sharedPreferences object
+        sharedPreferences = getSharedPreferences("location", 0);
+
+        // Getting number of locations already stored
+        locationCount = sharedPreferences.getInt("locationCount", 0);
+
+        // Getting stored zoom level if exists else return 0
+        String zoom = sharedPreferences.getString("zoom", "0");
+
+        // If locations are already saved
+        if(locationCount!=0) {
+
+            String lat = "";
+            String lng = "";
+
+            // Iterating through all the locations stored
+            for (int i = 0; i < locationCount; i++) {
+
+                // Getting the latitude of the i-th location
+                lat = sharedPreferences.getString("lat" + i, "0");
+
+                // Getting the longitude of the i-th location
+                lng = sharedPreferences.getString("lng" + i, "0");
+
+                // Drawing marker on the map
+                LatLng point = new LatLng(Double.parseDouble(lat), Double.parseDouble(lng));
+                mMap.addMarker(new MarkerOptions()
+                        .position(point)
+                        .title(mInput.getText().toString()));
+            }
+
+            // Moving CameraPosition to last clicked position
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(new LatLng(Double.parseDouble(lat), Double.parseDouble(lng))));
+
+            // Setting the zoom level in the map on last position is clicked
+            mMap.animateCamera(CameraUpdateFactory.zoomTo(Float.parseFloat(zoom)));
+        }
 
     }
 
@@ -444,12 +492,45 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     /**
      * Add marker on long click to the selected position
      * https://stackoverflow.com/questions/16097143/google-maps-android-api-v2-detect-long-click-on-map-and-add-marker-not-working
+     * http://www.androidtrainee.com/adding-multiple-marker-locations-in-google-maps-android-api-v2-and-save-it-in-shared-preferences/
      */
     @Override
     public void onMapLongClick(LatLng point) {
+        ++locationCount;
+
         mMap.addMarker(new MarkerOptions()
                 .position(point)
                 .title(mInput.getText().toString()));
+
+        /** Opening the editor object to write data to sharedPreferences */
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        // Storing the latitude for the i-th location
+        editor.putString("lat"+ Integer.toString((locationCount-1)), Double.toString(point.latitude));
+
+        // Storing the longitude for the i-th location
+        editor.putString("lng"+ Integer.toString((locationCount-1)), Double.toString(point.longitude));
+
+        // Storing the count of locations or marker count
+        editor.putInt("locationCount", locationCount);
+
+        /** Storing the zoom level to the shared preferences */
+        editor.putString("zoom", Float.toString(mMap.getCameraPosition().zoom));
+
+        /** Saving the values stored in the shared preferences */
+        editor.commit();
     }
+
+
+    /**
+     * remove a single marker by clicking on its infowindow
+     * http://wptrafficanalyzer.in/blog/remove-a-single-marker-from-google-maps-android-api-v2-on-clicking-infowindow/
+     */
+    @Override
+    public void onInfoWindowClick(Marker marker) {
+        // Remove the marker
+        marker.remove();
+    }
+
 
 }
