@@ -235,8 +235,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // If locations are already saved
         if(locationCount!=0) {
 
-            String lat = "";
-            String lng = "";
+            String lat    = "";
+            String lng    = "";
+            String title  = "";
 
             // Iterating through all the locations stored
             for (int i = 0; i < locationCount; i++) {
@@ -247,11 +248,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 // Getting the longitude of the i-th location
                 lng = sharedPreferences.getString("lng" + i, "0");
 
+                // Getting saved title of the i-th location
+                title = sharedPreferences.getString("title" + i, "");
+
                 // Drawing marker on the map
                 LatLng point = new LatLng(Double.parseDouble(lat), Double.parseDouble(lng));
                 mMap.addMarker(new MarkerOptions()
                         .position(point)
-                        .title(mInput.getText().toString()));
+                        .title(title));
             }
 
             // Moving CameraPosition to last clicked position
@@ -483,7 +487,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
 
-    // reset inputField content
+    // reset inputField content onclick
     public void resetInputField(View view) {
         mInput.setText("");
     }
@@ -498,9 +502,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapLongClick(LatLng point) {
         ++locationCount;
 
+        String marker_title = mInput.getText().toString();
+
         mMap.addMarker(new MarkerOptions()
                 .position(point)
-                .title(mInput.getText().toString()));
+                .title(marker_title));
 
         /** Opening the editor object to write data to sharedPreferences */
         SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -510,6 +516,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // Storing the longitude for the i-th location
         editor.putString("lng"+ Integer.toString((locationCount-1)), Double.toString(point.longitude));
+
+        // Storing the marker title from our input field
+        editor.putString("title" + Integer.toString(locationCount-1), marker_title);
 
         // Storing the count of locations or marker count
         editor.putInt("locationCount", locationCount);
@@ -523,8 +532,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
     /**
+     * Removes all markers from the map and clears sharedPreferences
+     */
+    public void removeMarkers(View view) {
+        // Removing the marker and circle from the Google Map
+        mMap.clear();
+
+        // Opening the editor object to delete data from sharedPreferences
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        // Clearing the editor
+        editor.clear();
+
+        // Committing the changes
+        editor.commit();
+
+        // Setting locationCount to zero
+        locationCount=0;
+    }
+
+
+
+    /**
      * remove a single marker by clicking on its infowindow
      * http://wptrafficanalyzer.in/blog/remove-a-single-marker-from-google-maps-android-api-v2-on-clicking-infowindow/
+     *
+     * /!\ currently does not remove marker from sharedPreferences
      */
     @Override
     public void onInfoWindowClick(Marker marker) {
