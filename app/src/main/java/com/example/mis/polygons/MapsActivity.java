@@ -113,6 +113,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mCameraPosition = savedInstanceState.getParcelable(KEY_CAMERA_POSITION);
         }
 
+        // set default location
+        mLastKnownLocation.setLatitude(50.9757);
+        mLastKnownLocation.setLongitude(11.3222);
+
         // Retrieve the content view that renders the map.
         setContentView(R.layout.activity_maps);
 
@@ -130,10 +134,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // polygon button
         mPolygonBtn = findViewById(R.id.polygonBtn);
-
-        // set default location
-        mLastKnownLocation.setLatitude(50.9757);
-        mLastKnownLocation.setLongitude(11.3222);
 
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
@@ -302,9 +302,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         if (task.isSuccessful()) {
                             // Set the map's camera position to the current location of the device.
                             mLastKnownLocation = task.getResult();
-                            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                                    new LatLng(mLastKnownLocation.getLatitude(),
-                                            mLastKnownLocation.getLongitude()), DEFAULT_ZOOM));
+                            if (mLastKnownLocation != null) {
+                                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                                        new LatLng(mLastKnownLocation.getLatitude(),
+                                                mLastKnownLocation.getLongitude()), DEFAULT_ZOOM));
+                            }
+
                         } else {
                             Log.d(TAG, "Current location is null. Using defaults.");
                             Log.e(TAG, "Exception: %s", task.getException());
