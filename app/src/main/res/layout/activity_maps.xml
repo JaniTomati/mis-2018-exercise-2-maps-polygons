@@ -44,7 +44,8 @@
             android:id="@+id/polygonBtn"
             android:layout_width="200dp"
             android:layout_height="match_parent"
-            android:text="Calculate Area" />
+            android:onClick="getPolygonArea"
+            android:text="Start Polygon" />
 
         <Button
             android:id="@+id/removeBtn"

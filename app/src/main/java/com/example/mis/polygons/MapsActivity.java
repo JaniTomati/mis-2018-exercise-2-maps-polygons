@@ -3,18 +3,20 @@ package com.example.mis.polygons;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.location.Location;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
-import android.support.v7.app.AlertDialog;
-import android.os.Bundle;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.AlertDialog;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
@@ -31,12 +33,21 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polygon;
+import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.maps.android.SphericalUtil;
+
+import java.util.ArrayList;
+
+import static com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_MAGENTA;
+import static com.google.android.gms.maps.model.BitmapDescriptorFactory.HUE_ORANGE;
 
 /**
  * Jonas Dorsch 115763
@@ -82,9 +93,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private LatLng[] mLikelyPlaceLatLngs;
 
     private EditText mInput;
+    private Button mPolygonBtn;
+    private boolean polygonStarted = false;
 
     private SharedPreferences sharedPreferences;
     private int locationCount = 0;
+
+    private ArrayList<LatLng> markers = new ArrayList<>();
+    private Polygon polygon;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -110,6 +127,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // input field for marker info
         mInput = findViewById(R.id.inputField);
+
+        // polygon button
+        mPolygonBtn = findViewById(R.id.polygonBtn);
 
         // set default location
         mLastKnownLocation.setLatitude(50.9757);
@@ -212,11 +232,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         // Get the current location of the device and set the position of the map.
         getDeviceLocation();
 
-        // Add a marker in Sydney and move the camera
-        //LatLng sydney = new LatLng(-34, 151);
-        //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        //mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-
         // set long click listener to add marker
         mMap.setOnMapLongClickListener(MapsActivity.this);
 
@@ -256,6 +271,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mMap.addMarker(new MarkerOptions()
                         .position(point)
                         .title(title));
+
+                markers.add(point);
             }
 
             // Moving CameraPosition to last clicked position
@@ -417,10 +434,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Log.i(TAG, "The user did not grant location permission.");
 
             // Add a default marker, because the user hasn't selected a place.
-            mMap.addMarker(new MarkerOptions()
+            Marker current_marker = mMap.addMarker(new MarkerOptions()
                     .title(getString(R.string.default_info_title))
                     .position(mDefaultLocation)
                     .snippet(getString(R.string.default_info_snippet)));
+
+            LatLng marker_pos = current_marker.getPosition();
+            markers.add(marker_pos);
 
             // Prompt the user for permission.
             getLocationPermission();
@@ -508,6 +528,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .position(point)
                 .title(marker_title));
 
+        markers.add(point);
+
         /** Opening the editor object to write data to sharedPreferences */
         SharedPreferences.Editor editor = sharedPreferences.edit();
 
@@ -549,8 +571,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // Setting locationCount to zero
         locationCount=0;
-    }
 
+        // clear marker array
+        markers.clear();
+    }
 
 
     /**
@@ -565,5 +589,79 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         marker.remove();
     }
 
+    // https://en.wikipedia.org/wiki/Shoelace_formula (computation in theory)
+    // http://googlemaps.github.io/android-maps-utils/javadoc/com/google/maps/android/SphericalUtil.html (existing function)
+    public double calculatePolygonArea() {
+        double area = 0.0;
+        PolygonOptions polygonOptions = new PolygonOptions();
 
+        if(locationCount != 0) {
+
+            // Iterating through all the locations stored
+            for (LatLng marker : markers) {
+                polygonOptions.add(marker);
+            }
+
+            polygonOptions.strokeColor(Color.BLUE);
+            polygonOptions.fillColor(0x7F0000FF);   // half-transparent blue
+
+            polygon = mMap.addPolygon(polygonOptions);
+            area = SphericalUtil.computeArea(polygon.getPoints());
+
+
+        } else if (locationCount < 3) {
+            Toast marker_error = Toast.makeText(MapsActivity.this, "Not enough markers to create polygon!", Toast.LENGTH_SHORT);
+            marker_error.show();
+        } else {
+            Toast marker_error = Toast.makeText(MapsActivity.this, "No markers set!", Toast.LENGTH_SHORT);
+            marker_error.show();
+        }
+
+        return area;
+    }
+
+
+    // calculate lat and lng averages of polygon for text display
+    // centroid of a finite set of points: https://en.wikipedia.org/wiki/Centroid#Of_a_finite_set_of_points
+    public LatLng calculatePolygonCenter() {
+        double lat_avg  = 0.0;
+        double lng_avg = 0.0;
+
+        for (LatLng marker : markers) {
+            lat_avg  += marker.latitude;
+            lng_avg += marker.longitude;
+        }
+
+        return new LatLng(lat_avg / markers.size(), lng_avg / markers.size());
+    }
+
+
+    // on polygonBtn click either calculate the area of the polygon or remove existing polygon
+    public void getPolygonArea(View view) {
+        String polygon_text = "";
+
+        if (polygonStarted != false) {
+            polygonStarted = false;
+            mPolygonBtn.setText("Start Polygon");
+            polygon.remove();
+        } else {
+            polygonStarted = true;
+            mPolygonBtn.setText("End Polygon");
+            double area = calculatePolygonArea();
+            LatLng center = calculatePolygonCenter();
+
+            if (area > 1000000) {
+                area /= 1000000; // convert from m^2 to km^2
+                polygon_text += Double.toString(area) + " km^2";
+            } else {
+                polygon_text += Double.toString(area) + " m^2";
+            }
+
+            mMap.addMarker(new MarkerOptions()
+                    .position(center)
+                    .title(polygon_text)
+                    .icon(BitmapDescriptorFactory
+                            .defaultMarker(HUE_MAGENTA))); // add marker to display polygon area
+        }
+    }
 }
